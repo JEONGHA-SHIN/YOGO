@@ -3,8 +3,9 @@ from socket import *
 from PyQt5.QtCore import Qt, pyqtSignal, QObject
 import cv2
 import numpy
-from queue import Queue
-queue = Queue()
+from queue import LifoQueue
+from _thread import *
+queue = LifoQueue()
 
 class Signal(QObject):
     recv_signal = pyqtSignal(str)
@@ -20,8 +21,8 @@ class ClientSocket:
         self.recv.recv_signal.connect(self.parent.updateMsg)
         self.disconn = Signal()
         self.disconn.disconn_signal.connect(self.parent.updateDisconnect)
-
         self.bConnect = False
+        #start_new_thread(self.webcam, (queue,))
 
     def __del__(self):
         self.stop()
@@ -65,38 +66,72 @@ class ClientSocket:
 
         self.stop()
 
-    def send(self, msg):
+    def send(self):
         if not self.bConnect:
             return
 
         try:
-            self.client.send(str(len(msg)).ljust(16).encode())
-            self.client.send(msg) #.encode()
+             start_new_thread(self.send_img,())
+             #.encode()
         except Exception as e:
             print('Send() Error : ', e)
-        print(msg)
-        print(type(msg))
+        #print(stringData)
+        #print(type(msg))
+
+    def send_img(self):
+        # while True:
+        #     stringData = queue.get()
+        #     self.client.send(str(len(stringData)).ljust(16).encode())
+        #     self.client.send(stringData)
+        #     key = cv2.waitKey(1)
+        #     if key == 27:
+        #         break
+
+        stringData = queue.get()
+        self.client.send(str(len(stringData)).ljust(16).encode())
+        self.client.send(stringData)
 
 
-    def webcam(self):
-
-        capture = cv2.VideoCapture(0)
-
-
-        ret, frame = capture.read()
-
-        #if ret == False:
-        #    continue
-
-        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
-        result, imgencode = cv2.imencode('.jpg', frame, encode_param)
-
-        data = numpy.array(imgencode)
-        stringData = data.tostring()
-        queue.put(stringData)
-
-        cv2.imshow('image', frame)
-
-        key = cv2.waitKey(1)
-
-        return stringData
+    # def webcam(self, queue):
+    #
+    #     capture = cv2.VideoCapture(0)
+    #
+    #
+    #     # ret, frame = capture.read()
+    #     #
+    #     # #if ret == False:
+    #     # #    continue
+    #     #
+    #     # encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+    #     # result, imgencode = cv2.imencode('.jpg', frame, encode_param)
+    #     #
+    #     # data = numpy.array(imgencode)
+    #     # stringData = data.tostring()
+    #     # queue.put(stringData)
+    #     #
+    #     # cv2.imshow('image', frame)
+    #     #
+    #     # key = cv2.waitKey(1)
+    #     #
+    #     # return stringData
+    #
+    #     while True:
+    #         ret, frame = capture.read()
+    #
+    #         if ret == False:
+    #             continue
+    #
+    #         encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 90]
+    #         result, imgencode = cv2.imencode('.jpg', frame, encode_param)
+    #
+    #         data = numpy.array(imgencode)
+    #         stringData = data.tostring()
+    #
+    #         queue.put(stringData)
+    #
+    #         #cv2.imshow('image', frame)
+    #         super().updateframe(frame)
+    #
+    #         key = cv2.waitKey(1)
+    #         if key == 27:
+    #             break

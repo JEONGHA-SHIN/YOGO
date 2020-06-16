@@ -3,12 +3,11 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import sys
 import client
+from _thread import *
 
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 
-port = 5614
-
-
+port = 3000
 class CWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -33,7 +32,7 @@ class CWidget(QWidget):
 
         label = QLabel('Server IP')
         self.ip = QLineEdit()
-        self.ip.setInputMask('000.000.000.000;_')
+        self.ip.setInputMask('141.223.65.209')
         box.addWidget(label)
         box.addWidget(self.ip)
 
@@ -114,9 +113,9 @@ class CWidget(QWidget):
         self.btn.setText('접속')
 
     def sendMsg(self):
-        sendmsg = self.c.webcam()
-        self.c.send(sendmsg)
-        print(str(len(sendmsg)))
+        #sendmsg = self.c.webcam()
+        self.c.send()
+        #print(str(len(sendmsg)))
         self.sendmsg.clear()
 
     def clearMsg(self):
