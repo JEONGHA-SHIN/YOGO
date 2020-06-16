@@ -14,6 +14,9 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from _thread import *
 import cv2
 import numpy
+from ur3 import ur3
+import robotiq_gripper_2F as gp
+import time
 from queue import LifoQueue
 
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
@@ -26,6 +29,7 @@ class Ui_MainWindow(object):
         #super().__init__()
         self.c = client.ClientSocket(self)
         self.queue = client.queue
+        self.rb = ur3()
         start_new_thread(self.webcam, (self.queue,))
 
 
@@ -33,6 +37,8 @@ class Ui_MainWindow(object):
 
     def __del__(self):
         self.c.stop()
+        self.rb.close()
+        gp.closeSerial()
         print(1)
 
     def setupUi(self, MainWindow):
@@ -185,6 +191,13 @@ class Ui_MainWindow(object):
         self.btn_detect.clicked.connect(self.sendMsg)
         self.btn_yogo_disconnect.clicked.connect(self.yogo_disconnectClicked)
 
+        self.btn_robot_connect.clicked.connect(self.robot_connectClicked)
+        self.btn_robot_disconnect.clicked.connect(self.robot_disconnectClicked)
+
+        self.btn_gripper_connect.clicked.connect(self.gripper_connectClicked)
+        self.btn_gripper_disconnect.clicked.connect(self.gripper_disconnectClicked)
+        self.grip.clicked.connect(self.grip_Clicked)
+
 
 
         self.retranslateUi(MainWindow)
@@ -205,7 +218,7 @@ class Ui_MainWindow(object):
         self.btn_yogo_disconnect.setText(_translate("MainWindow", "Disconnect"))
         self.groupBox_3.setTitle(_translate("MainWindow", "Robot"))
         self.label_3.setText(_translate("MainWindow", "IP"))
-        self.txt_robot_ip.setText(_translate("MainWindow", "141.223.65.209"))
+        self.txt_robot_ip.setText(_translate("MainWindow", "192.168.0.34"))
         self.btn_robot_connect.setText(_translate("MainWindow", "Connect"))
         self.btn_robot_disconnect.setText(_translate("MainWindow", "Disconnect"))
         self.label_4.setText(_translate("MainWindow", "Port"))
@@ -240,6 +253,37 @@ class Ui_MainWindow(object):
     def yogo_disconnectClicked(self):
         self.c.stop()
         print("서버 연결 종료")
+
+    def robot_connectClicked(self):
+        bind_ip = self.txt_robot_ip.text()
+        self.rb.connect(bind_ip)
+        print("Robot connected!!")
+        print("WARNING: Robot will move!!!")
+
+    def robot_disconnectClicked(self):
+        self.rb.close()
+
+    def gripper_connectClicked(self):
+        port = self.txt_gripper_port.text()
+        br = self.txt_gripper_baudrate.text()
+        gp.init(port)
+        gp.setPosition(0)
+
+    def gripper_disconnectClicked(self):
+        gp.closeSerial()
+
+    def grip_Clicked(self):
+        self.rb.go_2_bin((0.23, -0.4, 0.3, 2.85, 1.3, 0))
+        time.sleep(5)
+        self.rb.go_down(0.05)
+        time.sleep(0.5)
+        gp.setPosition(200, 50)
+        time.sleep(1)
+        self.rb.go_destination()
+        time.sleep(3)
+        gp.setPosition(0, 100)
+
+
 
     def sendMsg(self):
         self.c.send()
