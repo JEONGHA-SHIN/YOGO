@@ -44,7 +44,6 @@ class ClientSocket:
         return True
 
     def stop(self):
-        self.bConnect = False
         if hasattr(self, 'client'):
             self.client.close()
             del (self.client)
@@ -62,7 +61,13 @@ class ClientSocket:
                 msg = str(recv, encoding='utf-8')
                 if msg:
                     self.recv.recv_signal.emit(msg)
-                    print('[RECV]:', msg)
+
+                    #print(self.obj_list)
+
+                    #print(type(msg_list[0]))
+                    #print(msg_list)
+                    #print('[RECV]:', msg)
+
 
         self.stop()
 

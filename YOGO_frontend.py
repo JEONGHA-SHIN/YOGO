@@ -16,8 +16,11 @@ import cv2
 import numpy
 from ur3 import ur3
 import robotiq_gripper_2F as gp
+import subprocess
+
 import time
 from queue import LifoQueue
+
 
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 #queue = LifoQueue()
@@ -30,7 +33,10 @@ class Ui_MainWindow(object):
         self.c = client.ClientSocket(self)
         self.queue = client.queue
         self.rb = ur3()
+        self.i = 0
+        self.box_on = 0
         start_new_thread(self.webcam, (self.queue,))
+        self.obj_list = [[0] * 6 for _ in range(5)]
 
 
         self.setupUi(MainWindow)
@@ -164,7 +170,7 @@ class Ui_MainWindow(object):
         self.btn_manual = QtWidgets.QPushButton(self.tab2)
         self.btn_manual.setObjectName("btn_manual")
         self.gridLayout_6.addWidget(self.btn_manual, 2, 0, 1, 1)
-        self.listView = QtWidgets.QListView(self.tab2)
+        self.listView = QtWidgets.QListWidget(self.tab2)
         self.listView.setObjectName("listView")
         self.gridLayout_6.addWidget(self.listView, 1, 0, 1, 1)
         self.btn_detect = QtWidgets.QPushButton(self.tab2)
@@ -197,6 +203,8 @@ class Ui_MainWindow(object):
         self.btn_gripper_connect.clicked.connect(self.gripper_connectClicked)
         self.btn_gripper_disconnect.clicked.connect(self.gripper_disconnectClicked)
         self.grip.clicked.connect(self.grip_Clicked)
+
+        self.btn_manual.clicked.connect(self.manual_Clicked)
 
 
 
@@ -242,23 +250,29 @@ class Ui_MainWindow(object):
             ip = self.txt_yogo_ip.text()
             port = self.txt_yogo_portt.text()
             if self.c.connectServer(ip, int(port)):
-                print('연결 완료')
+                self.dialog.append('Connected to server')
+                #print('연결 완료')
             else:
                 self.c.stop()
-                print('연결 끊김')
+                self.dialog.append('Disconnected from server')
+                #print('연결 끊김')
         else:
             self.c.stop()
-            print('연결 끊김')
+            self.dialog.append('Disconnected from server')
+            #print('연결 끊김')
 
     def yogo_disconnectClicked(self):
         self.c.stop()
-        print("서버 연결 종료")
+        self.dialog.append('Disconnected from server')
+        #print("서버 연결 종료")
 
     def robot_connectClicked(self):
         bind_ip = self.txt_robot_ip.text()
         self.rb.connect(bind_ip)
-        print("Robot connected!!")
-        print("WARNING: Robot will move!!!")
+        self.dialog.append("Robot connected")
+        self.dialog.append("WARNING: Robot will move!!")
+        #print("Robot connected!!")
+        #print("WARNING: Robot will move!!!")
 
     def robot_disconnectClicked(self):
         self.rb.close()
@@ -273,12 +287,18 @@ class Ui_MainWindow(object):
         gp.closeSerial()
 
     def grip_Clicked(self):
-        self.rb.go_2_bin((0.23, -0.4, 0.3, 2.85, 1.3, 0))
+        #obj = self.listView.currentItem().text()
+        #txt = "Try to grip " + str(obj)
+        tcp = [[0, 0, 0, 0, 0, 0]]
+
+        self.rb.go_2_bin(tcp)
         time.sleep(5)
-        self.rb.go_down(0.05)
+        self.rb.go_down(0.07)
         time.sleep(0.5)
         gp.setPosition(200, 50)
         time.sleep(1)
+        self.rb.go_down(-0.05)
+        time.sleep(0.5)
         self.rb.go_destination()
         time.sleep(3)
         gp.setPosition(0, 100)
@@ -286,21 +306,44 @@ class Ui_MainWindow(object):
 
 
     def sendMsg(self):
-        self.c.send()
-        print("사진 전송")
+        print("")
+        # self.c.send()
+        # self.dialog.append("detecting objects...")
+        # self.listView.clear()
+        # self.box_on = 1
+        #print("사진 전송")
         #self.sendmsg.clear()
 
-    def updateMsg(self, msg):
-        self.dialog.addItem(QListWidgetItem(msg))
+    def updateMsg(self, msg): #tag1
+        print(msg)
+        msg_list = msg.split("b'")
+        k = int(msg_list[0])
+        self.obj_list = [[0] * 6 for _ in range(k)]
+        self.dialog.append(str(k) + " objects are detected!")
+        for i in range(k):
+            tmp = msg_list[i + 1].split("/")
+            self.obj_list[i][0] = tmp[0].strip("'")
+            self.obj_list[i][1] = float(tmp[1])
+            tmp2 = tmp[2].split(",")
+            self.obj_list[i][2] = float(tmp2[0].lstrip("("))
+            self.obj_list[i][3] = float(tmp2[1])
+            self.obj_list[i][4] = float(tmp2[2])
+            self.obj_list[i][5] =float(tmp2[3].strip(")"))
+            #self.obj_list[i][2] = tmp3
+            self.listView.addItem(self.obj_list[i][0])
+
 
     def updateDisconnect(self):
         self.c.stop()
-        print("접속끊김")
+        #print("접속끊김")
 
 
     def webcam(self, queue):
 
-        capture = cv2.VideoCapture(0)
+        capture = cv2.VideoCapture(1)
+        #capture.set(3,416)
+        #capture.set(4,416)
+
 
         while True:
             ret, frame = capture.read()
@@ -316,9 +359,10 @@ class Ui_MainWindow(object):
 
             queue.put(stringData)
 
-            #cv2.imshow('image', frame)
-            #self.updateframe(frame)
-            cam = cv2.cvtColor(frame,cv2.COLOR_BGR2RGB)
+            cam = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            cam = cv2.resize(cam, (416, 416), interpolation=cv2.INTER_LINEAR)
+            if self.box_on == 1:
+                cam = self.cvDrawBoxes(self.obj_list, cam)
             img = QImage(cam, cam.shape[1], cam.shape[0], QImage.Format_RGB888)  # , frame.shape[1], frame.shape[0], QImage.Fromat_RGB888
             pix = QPixmap.fromImage(img)
             self.frame.setPixmap(pix)
@@ -326,6 +370,40 @@ class Ui_MainWindow(object):
             key = cv2.waitKey(1)
             if key == 27:
                 break
+
+    def convertBack(self, x, y, w, h):
+        xmin = int(round(x - (w / 2)))
+        xmax = int(round(x + (w / 2)))
+        ymin = int(round(y - (h / 2)))
+        ymax = int(round(y + (h / 2)))
+        return xmin, ymin, xmax, ymax
+
+    def cvDrawBoxes(self, detections, img):
+        num = len(detections)
+        for a in range(num):
+            x = detections[a][2]
+            y = detections[a][3]
+            w = detections[a][4]
+            h = detections[a][5]
+            # x, y, w, h = detection[2][0], \
+            #              detection[2][1], \
+            #              detection[2][2], \
+            #              detection[2][3]
+            xmin, ymin, xmax, ymax = self.convertBack(float(x), float(y), float(w), float(h))
+            pt1 = (xmin, ymin)
+            pt2 = (xmax, ymax)
+            cv2.rectangle(img, pt1, pt2, (0, 255, 0), 1)
+            # cv2.putText(img,
+            #             detection[0] +
+            #             " [" + str(round(detection[1] * 100, 2)) + "]",
+            #             (pt1[0], pt1[1] - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+            #             [0, 255, 0], 2)
+        return img
+
+    def manual_Clicked(self):
+        print("")
+        #subprocess.call("python","takeROI.py")
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)

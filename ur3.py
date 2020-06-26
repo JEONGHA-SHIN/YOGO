@@ -2,15 +2,15 @@ import urx
 import time
 
 init_j = (-0.7967985312091272, -1.6069005171405237, -1.516601864491598, -1.5728910605060022, 1.6002588272094727, -3.5587941304981996e-05)
-mid_l = (-0.239, -0.232, 0.405, 3.05, -0.55, 0)
-destination_l = (-0.292, -0.033, 0.250, 2.792, -1.485, 0.015)
+mid_l = (-0.294,-0.258,0.24502,1.1064,-2.9611,0.0060)
+destination_l = (-0.374,0.08723,0.25458,1.0025,2.9890,0.1350)
 
 class ur3:
 
     def connect(self, bind_ip = '192.168.0.34'):
-        self.init_joint = init_j
+        self.init_joint = mid_l
         self.rob = urx.Robot(bind_ip)
-        self.rob.movej(self.init_joint, 1, 0.5, wait=False)
+        self.rob.movel(self.init_joint, 1, 0.5, wait=False)
 
     def __del__(self):
         self.rob.close()
